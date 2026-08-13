@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>SCOUT ONLINE v1.0</title>
+<style>
+:root{
+ --bg:#101319;--panel:#1a1f28;--panel2:#242b36;--line:#3b4655;--text:#f6f3ea;
+ --muted:#aeb7c5;--accent:#f3ca52;--good:#54c77a;--bad:#e96d6d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif}
+button,input{font:inherit}
+button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:9px 13px;cursor:pointer}
+button:disabled{opacity:.35;cursor:default}
+button.primary{background:#805817;border-color:#c89d38}
+button.good{background:#205c38;border-color:#3e9c5b}
+button.danger{background:#632d2d;border-color:#ad5454}
+button.small{padding:6px 9px;font-size:12px}
+.hidden{display:none!important}
+
+#app{width:100%;height:100%;display:flex;flex-direction:column}
+.topbar{height:52px;flex:none;background:#0c0f14;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;padding:6px 12px}
+.brand{font-weight:1000;letter-spacing:.09em}
+.ver{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 7px}
+.spacer{flex:1}
+#conn{font-size:12px;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;min-height:0}
+#main{flex:1;min-height:0;padding:9px;display:grid;grid-template-columns:235px 1fr 285px;gap:9px}
+#playersPanel{padding:8px;display:flex;flex-direction:column;gap:7px;overflow:hidden}
+.playerBox{position:relative;background:#161b22;border:1px solid var(--line);border-radius:11px;padding:8px}
+.playerBox.turn{outline:2px solid var(--accent)}
+.playerBox.you{box-shadow:inset 3px 0 0 #6ecbff}
+.playerRow{display:flex;align-items:center;gap:6px}
+.seat{font-size:10px;color:var(--muted)}
+.pname{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pstatus{margin-left:auto;font-size:11px;color:var(--muted)}
+.pmeta{font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap}
+#center{display:flex;flex-direction:column;gap:8px;min-height:0}
+#tablePanel{flex:1;display:flex;flex-direction:column;padding:10px;min-height:0}
+.title{font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.08em}
+#activeInfo{text-align:center;font-size:13px;height:25px;line-height:25px}
+#activeSet{flex:1;min-height:0;display:flex;justify-content:center;align-items:center;gap:6px;overflow:hidden}
+#actions{padding:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;flex:none}
+#fixBar{grid-column:1/-1;display:flex;justify-content:center;align-items:center;gap:7px;height:36px}
+#handPanel{height:205px;padding:8px;display:flex;flex-direction:column;min-height:0}
+#handWrap{flex:1;display:flex;justify-content:center;align-items:flex-end;gap:4px;overflow:hidden;padding:12px 2px 2px}
+#handHint{text-align:center;font-size:11px;color:var(--muted);height:18px}
+#side{display:flex;flex-direction:column;gap:8px;min-height:0}
+#roundPanel{padding:10px}
+.stats{display:grid;grid-template-columns:1fr auto;gap:4px 8px;font-size:12px;margin-top:6px}
+#logPanel{flex:1;padding:8px;display:flex;flex-direction:column;min-height:0}
+#log{flex:1;overflow:auto;font-size:11px;color:#d5dbe4;line-height:1.45}
+.logline{padding:3px 0;border-bottom:1px solid #2a313b}
+
+.card{width:66px;height:100px;border-radius:9px;border:2px solid;position:relative;display:flex;align-items:center;justify-content:center;flex:none;user-select:none;box-shadow:0 4px 10px #0008,inset 0 0 0 1px #ffffff2c}
+.card.small{width:51px;height:77px}
+.card .mainnum{font-size:31px;font-weight:1000}
+.card .corner{position:absolute;left:6px;top:4px;font-size:13px;font-weight:900}
+.card .subnum{position:absolute;right:6px;bottom:4px;font-size:13px;font-weight:900;opacity:.7}
+.card.clickable{cursor:pointer;transition:.1s transform}
+.card.selected{transform:translateY(-10px);outline:3px solid var(--accent)}
+.card.n1{background:#8b5a2b;color:#fff;border-color:#5f3c1c}
+.card.n2{background:#e53935;color:#fff;border-color:#aa1f1c}
+.card.n3{background:#f57c00;color:#fff;border-color:#b85b00}
+.card.n4{background:#fdd835;color:#171717;border-color:#c5a900}
+.card.n5{background:#43a047;color:#fff;border-color:#2f7633}
+.card.n6{background:#1e88e5;color:#fff;border-color:#1266ad}
+.card.n7{background:#8e24aa;color:#fff;border-color:#68177e}
+.card.n8{background:#9e9e9e;color:#161616;border-color:#737373}
+.card.n9{background:#f5f5f5;color:#111;border-color:#bdbdbd}
+.card.n10{background:#212121;color:#fff;border-color:#000}
+
+.overlay{position:fixed;inset:0;background:#000c;z-index:50;display:flex;align-items:center;justify-content:center;padding:14px}
+.modal{width:min(920px,96vw);max-height:94dvh;overflow:auto;background:#171c24;border:1px solid #566172;border-radius:17px;padding:17px;box-shadow:0 20px 70px #000}
+.modal h1,.modal h2{margin:0 0 10px}
+.modal p{color:var(--muted)}
+.rooms{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:14px 0}
+.room{background:#11161d;border:1px solid var(--line);border-radius:12px;padding:11px}
+.room h3{margin:0 0 8px}
+.roomStatus{font-size:12px;color:var(--muted);min-height:42px}
+.nameRow{display:flex;gap:8px}
+.nameRow input{flex:1;background:#0f141b;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px}
+.lobbyPlayers{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:10px 0}
+.lobbyP{padding:9px;background:#11161d;border:1px solid var(--line);border-radius:9px;text-align:center;font-size:12px}
+.preview{display:flex;gap:5px;overflow:auto;padding:10px 2px}
+.scoutChoice{display:flex;gap:15px;justify-content:center;margin:12px 0}
+.insertSlots{display:flex;align-items:flex-end;gap:3px;overflow:auto;padding:12px 1px}
+.insertSlot{width:18px;height:72px;border:2px dashed #7b8490;border-radius:7px;flex:none;cursor:pointer}
+.resultTable{width:100%;border-collapse:collapse;font-size:13px}
+.resultTable th,.resultTable td{padding:6px;border-top:1px solid #394350;text-align:center}
+.resultTable th:first-child,.resultTable td:first-child{text-align:left}
+
+.centerFlash{position:fixed;left:50%;top:50%;z-index:100;transform:translate(-50%,-50%);font-size:clamp(34px,6vw,72px);font-weight:1000;pointer-events:none;opacity:0;text-shadow:0 4px 10px #000,0 0 20px #000}
+.centerFlash.go{animation:flash 1.1s ease-out forwards}
+.centerFlash.scout{color:#6ae3ff}.centerFlash.double{color:#ffe45d}
+@keyframes flash{0%{opacity:0;transform:translate(-50%,-50%) scale(.55)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}68%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(.92)}}
+.scorePop{position:absolute;left:50%;top:3px;z-index:20;transform:translateX(-50%);font-size:21px;font-weight:1000;color:#ffe66a;text-shadow:0 2px 3px #000;pointer-events:none;animation:scorepop 1.05s ease-out forwards}
+@keyframes scorepop{0%{opacity:0;transform:translate(-50%,8px) scale(.8)}20%{opacity:1;transform:translate(-50%,-8px) scale(1.15)}75%{opacity:1;transform:translate(-50%,-28px)}100%{opacity:0;transform:translate(-50%,-42px)}}
+#toast{position:fixed;left:50%;top:62px;z-index:110;transform:translateX(-50%);background:#121820ee;border:1px solid var(--line);border-radius:10px;padding:8px 13px;font-size:13px;font-weight:800}
+
+@media(max-width:900px){
+ #main{grid-template-columns:190px 1fr 210px}
+ .card{width:56px;height:85px}.card .mainnum{font-size:27px}
+ #handWrap .card{width:52px;height:79px}
+}
+@media(max-width:700px) and (orientation:portrait){
+ html,body,#app{height:100dvh;min-height:100dvh;overflow:hidden}
+ .topbar{height:42px;padding:4px 7px}.brand{font-size:15px}.ver{font-size:9px}#conn{font-size:10px}
+ #main{height:calc(100dvh - 42px);padding:5px;display:grid;grid-template-columns:1fr;grid-template-rows:70px minmax(0,1fr) 105px;gap:5px}
+ #playersPanel{grid-row:1;display:flex;flex-direction:row;gap:4px;padding:4px;overflow-x:auto;overflow-y:hidden}
+ .playerBox{min-width:137px;padding:5px}.pname{font-size:12px}.pmeta{font-size:9px}.seat,.pstatus{font-size:8px}
+ #center{grid-row:2;gap:4px;min-height:0}
+ #tablePanel{padding:5px}.title{font-size:9px}#activeInfo{height:18px;line-height:18px;font-size:10px}
+ #activeSet{gap:3px}
+ #activeSet .card{width:43px;height:65px}.card .mainnum{font-size:22px}.card .corner,.card .subnum{font-size:9px}
+ #actions{padding:4px;gap:4px}#actions button{padding:7px 4px;font-size:12px}
+ #fixBar{height:29px}#fixBar button{padding:5px 7px;font-size:10px}
+ #handPanel{height:138px;padding:4px}
+ #handWrap{gap:0;padding:5px 0 0;overflow:hidden}
+ #handWrap .card{width:42px;height:64px;margin-left:-10px}
+ #handWrap .card:first-child{margin-left:0}
+ #handWrap .card .mainnum{font-size:20px}
+ #handHint{font-size:9px;height:14px}
+ #side{grid-row:3;display:grid;grid-template-columns:132px 1fr;gap:4px;min-height:0}
+ #roundPanel{padding:5px}.stats{font-size:9px;gap:2px 5px;margin-top:2px}
+ #logPanel{padding:5px}.title{letter-spacing:.03em}#log{font-size:9px;line-height:1.25}
+ .rooms{grid-template-columns:1fr 1fr}.modal{padding:12px;max-height:96dvh}.lobbyPlayers{grid-template-columns:1fr 1fr}
+ .preview .card{width:43px;height:65px}.insertSlots .card{width:35px;height:53px}.insertSlot{height:51px;width:15px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+ <div class="topbar">
+  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.0</div>
+  <div class="spacer"></div><div id="conn">未接続</div>
+  <button id="leaveBtn" class="small hidden">タイトルへ</button>
+ </div>
+ <div id="main">
+  <div id="playersPanel" class="panel"></div>
+  <div id="center">
+   <div id="tablePanel" class="panel"><div class="title">現在のショー</div><div id="activeInfo"></div><div id="activeSet"></div></div>
+   <div id="actions" class="panel">
+    <button id="showBtn" class="primary">ショー</button><button id="scoutBtn">スカウト</button><button id="doubleBtn" class="good">ダブルプレイ</button>
+    <div id="fixBar" class="hidden"><button id="fixBtn">SCOUT修正 5.0秒</button><button id="fixDoneBtn" class="good">確定</button></div>
+   </div>
+   <div id="handPanel" class="panel"><div class="title">自分の手札</div><div id="handWrap"></div><div id="handHint">連続したカードを選択</div></div>
+  </div>
+  <div id="side">
+   <div id="roundPanel" class="panel"><div class="title">ゲーム状況</div><div id="stats" class="stats"></div></div>
+   <div id="logPanel" class="panel"><div class="title">ログ</div><div id="log"></div></div>
+  </div>
+ </div>
+</div>
+
+<div id="titleOv" class="overlay">
+ <div class="modal">
+  <h1>SCOUT ONLINE</h1>
+  <p>固定4部屋。2～5人で対戦できます。足りない人数はCPUを追加できます。</p>
+  <div class="nameRow"><input id="nameInput" maxlength="20" placeholder="名前"><button id="refreshRooms">更新</button></div>
+  <div id="rooms" class="rooms"></div>
+  <p style="font-size:11px">部屋初期化は進行中のゲームも消去します。</p>
+ </div>
+</div>
+
+<div id="lobbyOv" class="overlay hidden">
+ <div class="modal">
+  <h2 id="lobbyTitle">ROOM</h2><div id="lobbyPlayers" class="lobbyPlayers"></div>
+  <div style="display:flex;gap:7px;flex-wrap:wrap">
+   <button id="addCpu">CPU追加</button><button id="removeCpu">CPU削除</button>
+   <button id="startGame" class="primary">ゲーム開始</button>
+  </div>
+  <p id="lobbyHint"></p>
+ </div>
+</div>
+
+<div id="orientOv" class="overlay hidden">
+ <div class="modal"><h2>手札の向きを決めます</h2><p>並び順は変えず、手札全体だけ上下反転できます。</p>
+  <div id="orientHand" class="preview"></div>
+  <div style="display:flex;gap:7px"><button id="flipOrient">全体を反転</button><button id="confirmOrient" class="primary">この向きで確定</button></div>
+ </div>
+</div>
+
+<div id="scoutOv" class="overlay hidden">
+ <div class="modal"><h2 id="scoutTitle">SCOUT</h2><div id="scoutChoices" class="scoutChoice"></div>
+  <div id="insertArea" class="hidden">
+   <p>向きと差し込む位置を選びます。</p>
+   <button id="flipScout">カードを反転</button>
+   <div id="scoutPreview" class="scoutChoice"></div><div id="insertSlots" class="insertSlots"></div>
+   <button id="cancelScout">閉じる</button>
+  </div>
+ </div>
+</div>
+
+<div id="roundOv" class="overlay hidden">
+ <div class="modal"><h2 id="roundTitle">ラウンド終了</h2><div id="roundResult"></div>
+  <button id="nextRound" class="primary">次のラウンド</button>
+ </div>
+</div>
+
+<div id="flash" class="centerFlash"></div><div id="toast" class="hidden"></div>
+
+<script>
+"use strict";
+const WORKER_ORIGIN="https://scout-online.naitoryo7110.workers.dev";
+const $=s=>document.querySelector(s);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let ws=null,state=null,currentRoom=null,lastEventSeq=null,selected=new Set(),scoutDraft=null,fixTick=null;
+const clientId=localStorage.getItem("scout_client_id")||crypto.randomUUID();
+localStorage.setItem("scout_client_id",clientId);
+$("#nameInput").value=localStorage.getItem("scout_name")||"PLAYER";
+
+function workerWs(room){
+ const u=new URL(WORKER_ORIGIN);
+ u.protocol=u.protocol==="https:"?"wss:":"ws:";
+ u.pathname=`/ws/${room}`;
+ u.searchParams.set("clientId",clientId);u.searchParams.set("name",$("#nameInput").value.trim()||"PLAYER");
+ return u.toString();
+}
+function val(c){return c.flipped?c.b:c.a}
+function other(c){return c.flipped?c.a:c.b}
+function setInfo(cards){
+ if(!cards?.length)return{valid:false,len:0,type:"none",rank:-1,label:""};
+ const vs=cards.map(val);
+ if(cards.length===1)return{valid:true,len:1,type:"single",rank:vs[0],label:String(vs[0])};
+ if(vs.every(x=>x===vs[0]))return{valid:true,len:cards.length,type:"group",rank:vs[0],label:`${vs[0]} × ${cards.length}`};
+ let a=true,d=true;for(let i=1;i<vs.length;i++){if(vs[i]!==vs[i-1]+1)a=false;if(vs[i]!==vs[i-1]-1)d=false}
+ if(a||d)return{valid:true,len:cards.length,type:"run",rank:Math.max(...vs),label:vs.join("・")};
+ return{valid:false,len:cards.length,type:"invalid",rank:-1,label:vs.join("・")};
+}
+function typePower(t){return t==="group"?3:t==="run"?2:t==="single"?1:0}
+function beats(cand,active){
+ const c=setInfo(cand);if(!c.valid)return false;if(!active?.length)return true;const a=setInfo(active);
+ if(c.len!==a.len)return c.len>a.len;if(typePower(c.type)!==typePower(a.type))return typePower(c.type)>typePower(a.type);return c.rank>a.rank;
+}
+function me(){return state?.players.find(p=>p.id===state.you)}
+function cardEl(c,click=false,small=false){
+ const d=document.createElement("div");d.className=`card n${val(c)}${click?" clickable":""}${small?" small":""}`;
+ d.innerHTML=`<div class="corner">${val(c)}</div><div class="mainnum">${val(c)}</div><div class="subnum">${other(c)}</div>`;return d;
+}
+function send(type,data={}){if(ws?.readyState===1)ws.send(JSON.stringify({type,...data}))}
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.remove("hidden");setTimeout(()=>e.classList.add("hidden"),1500)}
+function flash(t,k){const e=$("#flash");e.className="centerFlash";void e.offsetWidth;e.textContent=t;e.className=`centerFlash go ${k||""}`}
+function scorePop(pid,n){
+ setTimeout(()=>{const b=document.querySelector(`.playerBox[data-pid="${CSS.escape(pid)}"]`);if(!b)return;const e=document.createElement("div");e.className="scorePop";e.textContent=`+${n}点`;b.appendChild(e);setTimeout(()=>e.remove(),1100)},20)
+}
+
+async function refreshRooms(){
+ const root=$("#rooms");root.innerHTML="";
+ for(let i=1;i<=4;i++){
+  const room=`ROOM${i}`,box=document.createElement("div");box.className="room";box.innerHTML=`<h3>${room}</h3><div class="roomStatus">確認中...</div><div style="display:flex;gap:5px"><button class="join primary">参加</button><button class="reset danger small">初期化</button></div>`;root.appendChild(box);
+  try{
+   const r=await fetch(`${WORKER_ORIGIN}/room/${room}/status`);const j=await r.json();
+   box.querySelector(".roomStatus").textContent=`${phaseText(j.phase)} / ${j.players}人（接続${j.connected}・CPU${j.cpus}）`;
+  }catch{box.querySelector(".roomStatus").textContent="サーバー未接続"}
+  box.querySelector(".join").onclick=()=>joinRoom(room);
+  box.querySelector(".reset").onclick=async()=>{if(!confirm(`${room}を初期化しますか？`))return;await fetch(`${WORKER_ORIGIN}/room/${room}/reset`,{method:"POST"});refreshRooms()};
+ }
+}
+function phaseText(p){return({lobby:"待機中",orientation:"向き選択",play:"対戦中",doubleShow:"ダブルプレイ",roundEnd:"ラウンド終了",gameOver:"ゲーム終了"})[p]||p}
+
+function joinRoom(room){
+ const name=$("#nameInput").value.trim()||"PLAYER";localStorage.setItem("scout_name",name);currentRoom=room;lastEventSeq=null;
+ if(ws)try{ws.close()}catch{}
+ ws=new WebSocket(workerWs(room));$("#conn").textContent="接続中...";
+ ws.onopen=()=>{$("#conn").textContent=`${room} 接続`;$("#leaveBtn").classList.remove("hidden");$("#titleOv").classList.add("hidden")};
+ ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==="error"){toast(m.message);return}if(m.type==="state"){state=m;handleEvents();renderAll()}};
+ ws.onclose=()=>{$("#conn").textContent="切断";if(currentRoom)toast("サーバーとの接続が切れました")};
+}
+$("#leaveBtn").onclick=()=>{currentRoom=null;state=null;if(ws)ws.close();$("#leaveBtn").classList.add("hidden");$("#titleOv").classList.remove("hidden");$("#lobbyOv").classList.add("hidden");$("#orientOv").classList.add("hidden");$("#roundOv").classList.add("hidden");refreshRooms()};
+$("#refreshRooms").onclick=refreshRooms;
+
+function handleEvents(){
+ if(lastEventSeq===null){lastEventSeq=state.eventSeq;return}
+ for(const e of state.events.filter(e=>e.seq>lastEventSeq)){
+  if(e.type==="scout")flash("スカウト！","scout");
+  if(e.type==="double")flash("ダブルプレイ！！","double");
+  if(e.type==="score")scorePop(e.pid,e.amount);
+ }
+ lastEventSeq=state.eventSeq;
+}
+
+function renderAll(){
+ if(!state)return;
+ renderPlayers();renderActive();renderHand();renderStats();renderActions();renderLog();renderOverlays();renderFix();
+}
+function renderPlayers(){
+ const el=$("#playersPanel");el.innerHTML="";
+ const order=state.seatOrder?.length?state.seatOrder:state.players.map(p=>p.id);
+ order.forEach((pid,idx)=>{const p=state.players.find(x=>x.id===pid);if(!p)return;const b=document.createElement("div");b.className=`playerBox${state.turn===pid&&(state.phase==="play"||state.phase==="doubleShow")?" turn":""}${pid===state.you?" you":""}`;b.dataset.pid=pid;
+  const extra=state.players.length===2?`SCOUT用 ${p.scoutCurrency}`:`ダブル ${p.scoutAndShow?"○":"済"}`;
+  b.innerHTML=`<div class="playerRow"><span class="seat">${idx+1}席</span><span class="pname">${escapeHtml(p.name)}</span><span class="pstatus">${p.cpu?"CPU":p.connected?"●":"○"}</span></div><div class="pmeta">手札${p.handCount} / 札${p.captured} / SCOUT${p.scoutPoints} / ${extra}</div>`;
+  el.appendChild(b);
+ });
+}
+function renderActive(){
+ $("#activeSet").innerHTML="";if(!state.active.length){$("#activeInfo").textContent="場は空です";return}
+ const own=state.players.find(p=>p.id===state.activeOwner),info=setInfo(state.active);$("#activeInfo").textContent=`${own?.name||""} / ${info.type==="group"?"同数":info.type==="run"?"連番":"単体"} / ${info.label}`;
+ state.active.forEach(c=>$("#activeSet").appendChild(cardEl(c)));
+}
+function renderHand(){
+ const el=$("#handWrap");el.innerHTML="";const p=me();if(!p?.hand)return;
+ p.hand.forEach((c,i)=>{const d=cardEl(c,true);if(selected.has(i))d.classList.add("selected");d.onclick=()=>{if(!canSelect())return;selected.has(i)?selected.delete(i):selected.add(i);renderHand();renderActions()};el.appendChild(d)});
+}
+function selectedRange(){
+ const p=me();if(!p?.hand||!selected.size)return null;const a=[...selected].sort((x,y)=>x-y);for(let i=1;i<a.length;i++)if(a[i]!==a[i-1]+1)return null;return{i:a[0],j:a.at(-1),cards:p.hand.slice(a[0],a.at(-1)+1)}
+}
+function canSelect(){return state&&(state.phase==="play"||state.phase==="doubleShow")&&state.turn===state.you&&!state.scoutFix}
+function renderActions(){
+ const p=me(),mine=canSelect(),r=mine?selectedRange():null,forced=state.phase==="doubleShow";
+ $("#showBtn").disabled=!(mine&&r&&setInfo(r.cards).valid&&beats(r.cards,state.active));
+ $("#scoutBtn").disabled=forced||!(mine&&state.active.length&&(state.players.length!==2||p.scoutCurrency>0));
+ $("#doubleBtn").style.display=state.players.length===2?"none":"";
+ $("#doubleBtn").disabled=forced||!(mine&&state.active.length&&p.scoutAndShow);
+}
+$("#showBtn").onclick=()=>{const r=selectedRange();if(r)send("show",{i:r.i,j:r.j});selected.clear()};
+$("#scoutBtn").onclick=()=>openScout(false);
+$("#doubleBtn").onclick=()=>openScout(true);
+
+function renderStats(){
+ const owner=state.players.find(p=>p.id===state.activeOwner)?.name||"—",turn=state.players.find(p=>p.id===state.turn)?.name||"—";
+ $("#stats").innerHTML=`<div>ラウンド</div><b>${state.round+1}/${state.totalRounds||"-"}</b><div>手番</div><b>${escapeHtml(turn)}</b><div>場札</div><b>${escapeHtml(owner)}</b><div>連続SCOUT</div><b>${state.scoutsSinceShow}</b>`;
+}
+function renderLog(){
+ const names=Object.fromEntries(state.players.map(p=>[p.id,p.name])),arr=state.events.slice(-10).reverse();
+ $("#log").innerHTML=arr.map(e=>`<div class="logline">${eventText(e,names)}</div>`).join("");
+}
+function eventText(e,n){
+ if(e.type==="join")return `${e.name} が参加`;
+ if(e.type==="round_start")return `ラウンド${e.round}開始`;
+ if(e.type==="show")return `${n[e.pid]||""}：ショー ${e.label}`;
+ if(e.type==="scout")return `${n[e.pid]||""}：SCOUT`;
+ if(e.type==="double")return `${n[e.pid]||""}：ダブルプレイ`;
+ if(e.type==="score")return `${n[e.pid]||""}：${e.kind==="scout"?"SCOUT点":"札点"} +${e.amount}`;
+ if(e.type==="round_end")return `ラウンド終了`;
+ return e.type;
+}
+
+function renderOverlays(){
+ $("#lobbyOv").classList.toggle("hidden",state.phase!=="lobby");
+ if(state.phase==="lobby"){
+  $("#lobbyTitle").textContent=state.roomId;$("#lobbyPlayers").innerHTML=state.players.map(p=>`<div class="lobbyP">${escapeHtml(p.name)}<br><small>${p.cpu?"CPU":p.id===state.hostId?"ホスト":"参加者"}</small></div>`).join("");
+  const host=state.you===state.hostId;$("#addCpu").disabled=!host||state.players.length>=5;$("#removeCpu").disabled=!host||!state.players.some(p=>p.cpu);$("#startGame").disabled=!host||state.players.length<2;
+  $("#lobbyHint").textContent=host?"CPUを追加して2～5人で開始できます。":"ホストのゲーム開始を待っています。";
+ }
+ const p=me();
+ $("#orientOv").classList.toggle("hidden",state.phase!=="orientation"||p?.orientationConfirmed);
+ if(state.phase==="orientation"&&!p?.orientationConfirmed)renderOrient();
+ if(state.phase==="roundEnd"||state.phase==="gameOver")renderRound();
+ else $("#roundOv").classList.add("hidden");
+}
+$("#addCpu").onclick=()=>send("add_cpu");$("#removeCpu").onclick=()=>send("remove_cpu");$("#startGame").onclick=()=>send("start_game");
+
+function renderOrient(){const e=$("#orientHand");e.innerHTML="";me()?.hand?.forEach(c=>e.appendChild(cardEl(c)))}
+$("#flipOrient").onclick=()=>send("flip_orientation");$("#confirmOrient").onclick=()=>send("confirm_orientation");
+
+function openScout(isDouble){
+ scoutDraft={isDouble,side:null,card:null,flipped:false,correction:false};$("#scoutOv").classList.remove("hidden");$("#insertArea").classList.add("hidden");$("#scoutTitle").textContent=isDouble?"ダブルプレイ":"SCOUT";
+ const e=$("#scoutChoices");e.innerHTML="";const sides=state.active.length===1?["left"]:["left","right"];
+ sides.forEach(side=>{const c=state.active[side==="left"?0:state.active.length-1],d=cardEl(c,true);d.onclick=()=>chooseScoutSide(side);e.appendChild(d)});
+}
+function chooseScoutSide(side){
+ scoutDraft.side=side;scoutDraft.card={...state.active[side==="left"?0:state.active.length-1]};scoutDraft.flipped=scoutDraft.card.flipped;$("#scoutChoices").innerHTML="";$("#insertArea").classList.remove("hidden");renderScoutInsert();
+}
+function renderScoutInsert(){
+ $("#scoutPreview").innerHTML="";$("#scoutPreview").appendChild(cardEl(scoutDraft.card));const slots=$("#insertSlots");slots.innerHTML="";
+ const h=scoutDraft.correction?me().hand.filter(c=>c.id!==scoutDraft.card.id):me().hand;
+ for(let pos=0;pos<=h.length;pos++){const slot=document.createElement("div");slot.className="insertSlot";slot.onclick=()=>submitScoutPos(pos);slots.appendChild(slot);if(pos<h.length)slots.appendChild(cardEl(h[pos],false,true))}
+}
+$("#flipScout").onclick=()=>{scoutDraft.card.flipped=!scoutDraft.card.flipped;renderScoutInsert()};
+function submitScoutPos(pos){
+ if(scoutDraft.correction){send("scout_fix",{pos,flipped:scoutDraft.card.flipped})}
+ else send("scout",{side:scoutDraft.side,pos,flipped:scoutDraft.card.flipped,isDouble:scoutDraft.isDouble});
+ $("#scoutOv").classList.add("hidden");scoutDraft=null;
+}
+$("#cancelScout").onclick=()=>{$("#scoutOv").classList.add("hidden");scoutDraft=null};
+
+function renderFix(){
+ const f=state.scoutFix,mine=f&&f.pid===state.you;$("#fixBar").classList.toggle("hidden",!mine);
+ if(fixTick){clearInterval(fixTick);fixTick=null}
+ if(mine){
+  const upd=()=>{const r=Math.max(0,f.expiresAt-Date.now());$("#fixBtn").textContent=`SCOUT修正 ${(r/1000).toFixed(1)}秒`;if(r<=0&&fixTick){clearInterval(fixTick);fixTick=null}};
+  upd();fixTick=setInterval(upd,100);
+ }
+}
+$("#fixBtn").onclick=()=>{
+ const f=state.scoutFix;if(!f||f.pid!==state.you)return;const c=me().hand.find(c=>c.id===f.cardId);if(!c)return;
+ scoutDraft={correction:true,card:{...c},flipped:c.flipped};$("#scoutOv").classList.remove("hidden");$("#scoutChoices").innerHTML="";$("#insertArea").classList.remove("hidden");$("#scoutTitle").textContent="SCOUTしたカードを修正";renderScoutInsert();
+};
+$("#fixDoneBtn").onclick=()=>send("scout_fix_done");
+
+function renderRound(){
+ $("#roundOv").classList.remove("hidden");const sorted=[...state.players].sort((a,b)=>b.totalScore-a.totalScore);
+ if(state.phase==="gameOver"){
+  const max=Math.max(...state.players.map(p=>p.totalScore)),w=state.players.filter(p=>p.totalScore===max).map(p=>p.name).join("・");
+  $("#roundTitle").textContent="ゲーム終了";$("#roundResult").innerHTML=`<h2>${escapeHtml(w)} の勝利</h2>${sorted.map((p,i)=>`<div style="display:flex;justify-content:space-between;padding:7px;border-top:1px solid #394350"><span>${i+1}位 ${escapeHtml(p.name)}</span><b>${p.totalScore}点</b></div>`).join("")}`;$("#nextRound").classList.add("hidden");
+ }else{
+  $("#roundTitle").textContent=`ラウンド ${state.round+1} 終了`;$("#roundResult").innerHTML=`<table class="resultTable"><tr><th>プレイヤー</th><th>札点</th><th>SCOUT点</th><th>手札</th><th>今回</th><th>合計</th></tr>${state.players.map(p=>`<tr><td>${escapeHtml(p.name)}</td><td>${p.captured}</td><td>${state.players.length===2?p.scoutCurrency:p.scoutPoints}</td><td>${p.handCount}</td><td>${p.roundScore>=0?"+":""}${p.roundScore}</td><td>${p.totalScore}</td></tr>`).join("")}</table>`;$("#nextRound").classList.toggle("hidden",state.you!==state.hostId);
+ }
+}
+$("#nextRound").onclick=()=>send("next_round");
+
+function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+refreshRooms();
+</script>
+</body>
+</html>
