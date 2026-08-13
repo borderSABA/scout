@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>SCOUT ONLINE v1.4</title>
+<title>SCOUT ONLINE v1.6</title>
 <style>
 :root{
  --bg:#101319;--panel:#1a1f28;--panel2:#242b36;--line:#3b4655;--text:#f6f3ea;
@@ -122,8 +122,8 @@ button.small{padding:6px 9px;font-size:12px}
  #activeSet .card{width:43px;height:65px}.card .mainnum{font-size:22px}.card .corner,.card .subnum{font-size:9px}
  #actions{padding:4px;gap:4px}#actions button{padding:7px 4px;font-size:12px}
  #fixBar{height:29px}#fixBar button{padding:5px 7px;font-size:10px}
- #handPanel{height:138px;padding:4px}
- #handWrap{gap:0;padding:5px 0 0;overflow:hidden;width:100%;justify-content:center;position:relative}
+ #handPanel{height:136px;padding:3px}
+ #handWrap{gap:0;padding:12px 0 0;overflow:hidden;width:100%;justify-content:center;position:relative}
  #handWrap .card{margin-left:0;min-width:0;flex:0 0 auto}
  #handWrap .card .mainnum{font-size:20px}
  #handHint{font-size:9px;height:14px}
@@ -138,7 +138,7 @@ button.small{padding:6px 9px;font-size:12px}
 <body>
 <div id="app">
  <div class="topbar">
-  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.4</div>
+  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.6</div>
   <div class="spacer"></div><div id="conn">未接続</div>
   <button id="leaveBtn" class="small hidden">タイトルへ</button>
  </div>
@@ -178,6 +178,7 @@ button.small{padding:6px 9px;font-size:12px}
   <div style="display:flex;gap:7px;flex-wrap:wrap">
    <button id="addCpu">CPU追加</button><button id="removeCpu">CPU削除</button>
    <button id="startGame" class="primary">ゲーム開始</button>
+   <button id="lobbyToTitle">タイトルへ戻る</button>
   </div>
   <p id="lobbyHint"></p>
  </div>
@@ -432,7 +433,8 @@ function fitOverlapCards(container, preferredWidth, preferredHeight){
  // The cards remain readable. Only the spacing between cards is compressed.
  // The final card is always fully visible because the step is calculated
  // from (available - one full card width).
- const step=n<=1?cardW:Math.min(cardW,Math.max(7,(available-cardW)/(n-1)));
+ const minStep=4;
+ const step=n<=1?cardW:Math.min(cardW,Math.max(minStep,(available-cardW)/(n-1)));
  const overlap=Math.max(0,cardW-step);
 
  cards.forEach((c,i)=>{
@@ -445,16 +447,25 @@ function fitOverlapCards(container, preferredWidth, preferredHeight){
   const main=c.querySelector(".mainnum");
   const corner=c.querySelector(".corner");
   const sub=c.querySelector(".subnum");
-  if(main)main.style.fontSize=`${Math.max(14,Math.round(cardW*.46))}px`;
-  if(corner)corner.style.fontSize=`${Math.max(8,Math.round(cardW*.20))}px`;
-  if(sub)sub.style.fontSize=`${Math.max(8,Math.round(cardW*.20))}px`;
+  if(main)main.style.fontSize=`${Math.max(12,Math.round(cardW*.46))}px`;
+  if(corner)corner.style.fontSize=`${Math.max(7,Math.round(cardW*.20))}px`;
+  if(sub)sub.style.fontSize=`${Math.max(7,Math.round(cardW*.20))}px`;
  });
 }
 
 function fitHandCards(){
  const el=$("#handWrap");
  const mobile=window.matchMedia("(max-width:700px) and (orientation:portrait)").matches;
- fitOverlapCards(el,mobile?46:66,mobile?70:100);
+ if(mobile){
+  const n=el.querySelectorAll(":scope > .card").length;
+  // Keep cards readable but smaller than before on phones.
+  // More cards -> slightly smaller base width before overlap is applied.
+  const w=n>=15?34:n>=12?36:n>=10?38:40;
+  const h=Math.round(w*1.52);
+  fitOverlapCards(el,w,h);
+ }else{
+  fitOverlapCards(el,66,100);
+ }
 }
 
 function fitOrientationCards(){
@@ -499,6 +510,8 @@ function eventText(e,n){
  if(e.type==="double")return `${n[e.pid]||""}：ダブルプレイ`;
  if(e.type==="score")return `${n[e.pid]||""}：${e.kind==="scout"?"SCOUT点":"札点"} +${e.amount}`;
  if(e.type==="agari")return `${n[e.pid]||""}：あがり！`;
+ if(e.type==="no_action")return `${n[e.pid]||""}：ショー不可・SCOUT残り0`;
+ if(e.type==="leave")return `${e.name||n[e.pid]||""} が退出`;
  if(e.type==="round_end")return `ラウンド終了`;
  return e.type;
 }
@@ -516,7 +529,17 @@ function renderOverlays(){
  if(state.phase==="roundEnd"||state.phase==="gameOver")renderRound();
  else $("#roundOv").classList.add("hidden");
 }
-$("#addCpu").onclick=()=>send("add_cpu");$("#removeCpu").onclick=()=>send("remove_cpu");$("#startGame").onclick=()=>send("start_game");
+$("#addCpu").onclick=()=>send("add_cpu");
+$("#removeCpu").onclick=()=>send("remove_cpu");
+$("#startGame").onclick=()=>send("start_game");
+$("#lobbyToTitle").onclick=()=>{
+ if(state?.phase==="lobby" && ws?.readyState===1){
+  send("leave_room");
+  setTimeout(goTitle,160);
+ }else{
+  goTitle();
+ }
+};
 
 function renderOrient(){
  const e=$("#orientHand");e.innerHTML="";
