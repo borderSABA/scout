@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>SCOUT ONLINE v1.8</title>
+<title>SCOUT ONLINE v1.11</title>
 <style>
 :root{
  --bg:#101319;--panel:#1a1f28;--panel2:#242b36;--line:#3b4655;--text:#f6f3ea;
@@ -30,7 +30,11 @@ button.small{padding:6px 9px;font-size:12px}
 #main{flex:1;min-height:0;padding:9px;display:grid;grid-template-columns:235px 1fr 285px;gap:9px}
 #playersPanel{padding:8px;display:flex;flex-direction:column;gap:7px;overflow:hidden}
 .playerBox{position:relative;background:#161b22;border:1px solid var(--line);border-radius:11px;padding:8px}
-.playerBox.turn{outline:2px solid var(--accent)}
+.playerBox.turn{
+  outline:3px solid var(--accent);
+  background:#302817;
+  box-shadow:0 0 0 2px #000,0 0 16px #f3ca5266;
+}
 .playerBox.you{box-shadow:inset 3px 0 0 #6ecbff}
 .playerRow{display:flex;align-items:center;gap:6px}
 .seat{font-size:10px;color:var(--muted)}
@@ -43,6 +47,16 @@ button.small{padding:6px 9px;font-size:12px}
 .pstatus{margin-left:auto;font-size:11px;color:var(--muted)}
 .pmeta{font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap}
 #center{display:flex;flex-direction:column;gap:8px;min-height:0}
+#turnBanner{
+  min-height:44px;flex:none;border:2px solid var(--line);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  padding:6px 12px;background:#161b22;font-size:18px;font-weight:1000;
+  letter-spacing:.04em;box-shadow:0 3px 12px #0005;
+}
+#turnBanner.mine{background:#4b3c10;border-color:#f3ca52;color:#fff2a8;box-shadow:0 0 18px #f3ca5244}
+#turnBanner.other{background:#1c2633;border-color:#60748f;color:#dce8f6}
+#turnBanner.agari{background:#18351f;border-color:#63d47c;color:#aaffb9}
+#turnBanner .turnSub{font-size:12px;font-weight:800;color:var(--muted);margin-left:10px;letter-spacing:0}
 #tablePanel{flex:1;display:flex;flex-direction:column;padding:10px;min-height:0}
 .title{font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.08em}
 #activeInfo{text-align:center;font-size:13px;height:25px;line-height:25px}
@@ -124,6 +138,8 @@ button.small{padding:6px 9px;font-size:12px}
  #playersPanel{grid-row:1;display:flex;flex-direction:row;gap:4px;padding:4px;overflow-x:auto;overflow-y:hidden}
  .playerBox{min-width:145px;padding:5px}.pname{font-size:12px}.ptotal{font-size:10px}.pmeta{font-size:9px}.seat,.pstatus{font-size:8px}
  #center{grid-row:2;gap:4px;min-height:0}
+ #turnBanner{min-height:34px;padding:3px 7px;font-size:14px;border-radius:8px}
+ #turnBanner .turnSub{font-size:9px;margin-left:5px}
  #tablePanel{padding:5px}.title{font-size:9px}#activeInfo{height:18px;line-height:18px;font-size:10px}
  #activeSet{gap:3px}
  #activeSet .card{width:43px;height:65px}.card .mainnum{font-size:22px}.card .corner,.card .subnum{font-size:9px}
@@ -145,13 +161,14 @@ button.small{padding:6px 9px;font-size:12px}
 <body>
 <div id="app">
  <div class="topbar">
-  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.8</div>
+  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.11</div>
   <div class="spacer"></div><div id="conn">未接続</div>
   <button id="leaveBtn" class="small hidden">タイトルへ</button>
  </div>
  <div id="main">
   <div id="playersPanel" class="panel"></div>
   <div id="center">
+   <div id="turnBanner">手番待ち</div>
    <div id="tablePanel" class="panel"><div class="title">現在のショー</div><div id="activeInfo"></div><div id="activeSet"></div></div>
    <div id="actions" class="panel">
     <button id="showBtn" class="primary">ショー</button><button id="scoutBtn">スカウト</button><button id="doubleBtn" class="good">ダブルプレイ</button>
@@ -402,8 +419,52 @@ function handleEvents(){
 
 function renderAll(){
  if(!state)return;
- renderPlayers();renderActive();renderHand();renderStats();renderActions();renderLog();renderOverlays();renderFix();
+ renderPlayers();renderTurnBanner();renderActive();renderHand();renderStats();renderActions();renderLog();renderOverlays();renderFix();
 }
+function renderTurnBanner(){
+ const el=$("#turnBanner");
+ if(!state){el.textContent="手番待ち";el.className="";return}
+
+ if(state.phase==="agari"){
+  const owner=state.players.find(p=>p.id===state.activeOwner);
+  el.className="agari";
+  el.innerHTML=`あがり！ <span class="turnSub">${escapeHtml(owner?.name||"")} の最終ショー</span>`;
+  return;
+ }
+
+ if(state.phase==="orientation"){
+  el.className="";
+  el.innerHTML=`手札の向き選択中`;
+  return;
+ }
+
+ if(state.phase!=="play" && state.phase!=="doubleShow"){
+  el.className="";
+  el.textContent=phaseText(state.phase);
+  return;
+ }
+
+ const tp=state.players.find(p=>p.id===state.turn);
+ if(!tp){
+  el.className="";
+  el.textContent="手番待ち";
+  return;
+ }
+
+ const mine=state.turn===state.you;
+ el.className=mine?"mine":"other";
+
+ let sub="";
+ if(state.players.length===2){
+  sub=`SCOUT残り ${tp.scoutCurrency}/3`;
+  if(mine && tp.scoutCurrency>0) sub+=` ・ SCOUT後もあなたの手番`;
+  else if(!mine && tp.scoutCurrency>0) sub+=` ・ SCOUT後も同じ人が続行`;
+ }
+ if(state.phase==="doubleShow") sub="ダブルプレイ：続けてショー（SCOUT修正は5秒以内）";
+
+ el.innerHTML=`${mine?"あなたの手番":`${escapeHtml(tp.name)} の手番`}${sub?`<span class="turnSub">${sub}</span>`:""}`;
+}
+
 function renderPlayers(){
  const el=$("#playersPanel");el.innerHTML="";
  const order=state.seatOrder?.length?state.seatOrder:state.players.map(p=>p.id);
@@ -527,7 +588,11 @@ function renderHand(){
 function selectedRange(){
  const p=me();if(!p?.hand||!selected.size)return null;const a=[...selected].sort((x,y)=>x-y);for(let i=1;i<a.length;i++)if(a[i]!==a[i-1]+1)return null;return{i:a[0],j:a.at(-1),cards:p.hand.slice(a[0],a.at(-1)+1)}
 }
-function canSelect(){return state&&(state.phase==="play"||state.phase==="doubleShow")&&state.turn===state.you&&!state.scoutFix}
+function canSelect(){
+ if(!state||(state.phase!=="play"&&state.phase!=="doubleShow")||state.turn!==state.you)return false;
+ if(!state.scoutFix)return true;
+ return state.phase==="doubleShow" && state.scoutFix.pid===state.you && state.scoutFix.isDouble;
+}
 function renderActions(){
  const p=me(),mine=canSelect(),r=mine?selectedRange():null,forced=state.phase==="doubleShow";
  $("#showBtn").disabled=!(mine&&r&&setInfo(r.cards).valid&&beats(r.cards,state.active));
@@ -535,7 +600,16 @@ function renderActions(){
  $("#doubleBtn").style.display=state.players.length===2?"none":"";
  $("#doubleBtn").disabled=forced||!(mine&&state.active.length&&p.scoutAndShow);
 }
-$("#showBtn").onclick=()=>{const r=selectedRange();if(r)send("show",{i:r.i,j:r.j});selected.clear()};
+$("#showBtn").onclick=()=>{
+ const r=selectedRange();
+ if(!r)return;
+ if(state?.phase==="doubleShow"){
+  $("#scoutOv").classList.add("hidden");
+  scoutDraft=null;
+ }
+ send("show",{i:r.i,j:r.j});
+ selected.clear();
+};
 $("#scoutBtn").onclick=()=>openScout(false);
 $("#doubleBtn").onclick=()=>openScout(true);
 
