@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>SCOUT ONLINE v1.2</title>
+<title>SCOUT ONLINE v1.4</title>
 <style>
 :root{
  --bg:#101319;--panel:#1a1f28;--panel2:#242b36;--line:#3b4655;--text:#f6f3ea;
@@ -50,7 +50,7 @@ button.small{padding:6px 9px;font-size:12px}
 #actions{padding:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;flex:none}
 #fixBar{grid-column:1/-1;display:flex;justify-content:center;align-items:center;gap:7px;height:36px}
 #handPanel{height:205px;padding:8px;display:flex;flex-direction:column;min-height:0}
-#handWrap{flex:1;display:flex;justify-content:center;align-items:flex-end;gap:4px;overflow:hidden;padding:12px 2px 2px}
+#handWrap{flex:1;display:flex;justify-content:center;align-items:flex-end;gap:0;overflow:hidden;padding:12px 2px 2px;position:relative}
 #handHint{text-align:center;font-size:11px;color:var(--muted);height:18px}
 #side{display:flex;flex-direction:column;gap:8px;min-height:0}
 #roundPanel{padding:10px}
@@ -89,7 +89,7 @@ button.small{padding:6px 9px;font-size:12px}
 .nameRow input{flex:1;background:#0f141b;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px}
 .lobbyPlayers{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:10px 0}
 .lobbyP{padding:9px;background:#11161d;border:1px solid var(--line);border-radius:9px;text-align:center;font-size:12px}
-.preview{display:flex;gap:5px;overflow:auto;padding:10px 2px}
+.preview{display:flex;gap:0;overflow:hidden;padding:10px 2px;position:relative;width:100%;justify-content:center}
 .scoutChoice{display:flex;gap:15px;justify-content:center;margin:12px 0}
 .insertSlots{display:flex;align-items:flex-end;gap:3px;overflow:auto;padding:12px 1px}
 .insertSlot{width:18px;height:72px;border:2px dashed #7b8490;border-radius:7px;flex:none;cursor:pointer}
@@ -123,7 +123,7 @@ button.small{padding:6px 9px;font-size:12px}
  #actions{padding:4px;gap:4px}#actions button{padding:7px 4px;font-size:12px}
  #fixBar{height:29px}#fixBar button{padding:5px 7px;font-size:10px}
  #handPanel{height:138px;padding:4px}
- #handWrap{gap:1px;padding:5px 0 0;overflow:hidden;width:100%;justify-content:center}
+ #handWrap{gap:0;padding:5px 0 0;overflow:hidden;width:100%;justify-content:center;position:relative}
  #handWrap .card{margin-left:0;min-width:0;flex:0 0 auto}
  #handWrap .card .mainnum{font-size:20px}
  #handHint{font-size:9px;height:14px}
@@ -131,14 +131,14 @@ button.small{padding:6px 9px;font-size:12px}
  #roundPanel{padding:5px}.stats{font-size:9px;gap:2px 5px;margin-top:2px}
  #logPanel{padding:5px}.title{letter-spacing:.03em}#log{font-size:9px;line-height:1.25}
  .rooms{grid-template-columns:1fr 1fr}.modal{padding:12px;max-height:96dvh}.lobbyPlayers{grid-template-columns:1fr 1fr}
- .preview .card{width:43px;height:65px}.insertSlots .card{width:35px;height:53px}.insertSlot{height:51px;width:15px}
+ .preview .card{width:46px;height:70px}.insertSlots .card{width:35px;height:53px}.insertSlot{height:51px;width:15px}
 }
 </style>
 </head>
 <body>
 <div id="app">
  <div class="topbar">
-  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.2</div>
+  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.4</div>
   <div class="spacer"></div><div id="conn">未接続</div>
   <button id="leaveBtn" class="small hidden">タイトルへ</button>
  </div>
@@ -161,11 +161,14 @@ button.small{padding:6px 9px;font-size:12px}
 
 <div id="titleOv" class="overlay">
  <div class="modal">
-  <h1>SCOUT ONLINE</h1>
+  <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+   <h1 style="margin:0">SCOUT ONLINE</h1>
+   <span class="ver">v1.3</span>
+  </div>
   <p>固定4部屋。2～5人で対戦できます。足りない人数はCPUを追加できます。</p>
   <div class="nameRow"><input id="nameInput" maxlength="20" placeholder="名前"><button id="refreshRooms">更新</button></div>
   <div id="rooms" class="rooms"></div>
-  <p style="font-size:11px">部屋初期化は進行中のゲームも消去します。</p>
+  <p style="font-size:11px">部屋初期化は進行中のゲームも消去します。通信切断・ページ再読み込み時は、同じブラウザなら自動で対戦へ復帰します。</p>
  </div>
 </div>
 
@@ -216,6 +219,7 @@ const WORKER_ORIGIN="https://scout-online.naitoryo7110.workers.dev";
 const $=s=>document.querySelector(s);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 let ws=null,state=null,currentRoom=null,lastEventSeq=null,selected=new Set(),scoutDraft=null,fixTick=null;
+let reconnectTimer=null,reconnectAttempts=0,intentionalLeave=false,connecting=false;
 const clientId=localStorage.getItem("scout_client_id")||crypto.randomUUID();
 localStorage.setItem("scout_client_id",clientId);
 $("#nameInput").value=localStorage.getItem("scout_name")||"PLAYER";
@@ -269,19 +273,98 @@ async function refreshRooms(){
 }
 function phaseText(p){return({lobby:"待機中",orientation:"向き選択",play:"対戦中",doubleShow:"ダブルプレイ",agari:"あがり",roundEnd:"ラウンド終了",gameOver:"ゲーム終了"})[p]||p}
 
-function joinRoom(room){
- const name=$("#nameInput").value.trim()||"PLAYER";localStorage.setItem("scout_name",name);currentRoom=room;lastEventSeq=null;
- if(ws)try{ws.close()}catch{}
- ws=new WebSocket(workerWs(room));$("#conn").textContent="接続中...";
- ws.onopen=()=>{$("#conn").textContent=`${room} 接続`;$("#leaveBtn").classList.remove("hidden");$("#titleOv").classList.add("hidden")};
- ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==="error"){toast(m.message);return}if(m.type==="state"){state=m;handleEvents();renderAll()}};
- ws.onclose=()=>{$("#conn").textContent="切断";if(currentRoom)toast("サーバーとの接続が切れました")};
+function scheduleReconnect(){
+ if(intentionalLeave||!currentRoom||reconnectTimer)return;
+ const delay=Math.min(5000,700+reconnectAttempts*700);
+ reconnectAttempts++;
+ $("#conn").textContent=`再接続待機 ${Math.ceil(delay/1000)}秒`;
+ reconnectTimer=setTimeout(()=>{
+  reconnectTimer=null;
+  connectRoom(currentRoom,true);
+ },delay);
 }
+
+function connectRoom(room,isReconnect=false){
+ if(connecting)return;
+ connecting=true;
+ const name=$("#nameInput").value.trim()||localStorage.getItem("scout_name")||"PLAYER";
+ localStorage.setItem("scout_name",name);
+ localStorage.setItem("scout_last_room",room);
+ currentRoom=room;
+ intentionalLeave=false;
+
+ if(ws){
+  try{
+   ws.onclose=null;
+   ws.onerror=null;
+   ws.close();
+  }catch{}
+ }
+ ws=new WebSocket(workerWs(room));
+ $("#conn").textContent=isReconnect?"再接続中...":"接続中...";
+
+ ws.onopen=()=>{
+  connecting=false;
+  reconnectAttempts=0;
+  if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}
+  $("#conn").textContent=`${room} 接続`;
+  $("#leaveBtn").classList.remove("hidden");
+  $("#titleOv").classList.add("hidden");
+  if(isReconnect)toast("再接続しました");
+ };
+
+ ws.onmessage=e=>{
+  let m;
+  try{m=JSON.parse(e.data)}catch{return}
+  if(m.type==="error"){
+   toast(m.message);
+   return;
+  }
+  if(m.type==="state"){
+   state=m;
+   handleEvents();
+   renderAll();
+  }
+ };
+
+ ws.onerror=()=>{
+  connecting=false;
+ };
+
+ ws.onclose=()=>{
+  connecting=false;
+  if(intentionalLeave||!currentRoom)return;
+  $("#conn").textContent="切断・再接続中";
+  toast("通信が切れました。再接続します");
+  scheduleReconnect();
+ };
+}
+
+function joinRoom(room){
+ lastEventSeq=null;
+ connectRoom(room,false);
+}
+
 function goTitle(){
- currentRoom=null;state=null;selected.clear();scoutDraft=null;
+ intentionalLeave=true;
+ currentRoom=null;
+ state=null;
+ selected.clear();
+ scoutDraft=null;
+ localStorage.removeItem("scout_last_room");
+ if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null}
+ reconnectAttempts=0;
+ connecting=false;
  if(fixTick){clearInterval(fixTick);fixTick=null}
- if(ws)try{ws.close()}catch{}
+ if(ws){
+  try{
+   ws.onclose=null;
+   ws.onerror=null;
+   ws.close();
+  }catch{}
+ }
  $("#leaveBtn").classList.add("hidden");
+ $("#conn").textContent="未接続";
  $("#titleOv").classList.remove("hidden");
  $("#lobbyOv").classList.add("hidden");
  $("#orientOv").classList.add("hidden");
@@ -320,7 +403,14 @@ function renderPlayers(){
   }else{
    extra=`ダブル ${p.scoutAndShow?"○":"済"}`;
   }
-  const shownScore=p.liveScore ?? p.totalScore;
+  let shownScore=p.totalScore;
+  // During a live round, acquired points are shown immediately beside the name.
+  // For 3-5 players: captured cards + SCOUT points are already earned.
+  // For 2 players: captured cards are immediate; remaining SCOUT tokens are scored
+  // only when the round ends, so they are not added here.
+  if(["orientation","play","doubleShow","agari"].includes(state.phase)){
+   shownScore += p.captured + (state.players.length===2 ? 0 : p.scoutPoints);
+  }
   b.innerHTML=`<div class="playerRow"><span class="seat">${idx+1}席</span><span class="pname">${escapeHtml(p.name)}</span><span class="ptotal">${shownScore}点</span><span class="pstatus">${p.cpu?"CPU":p.connected?"●":"○"}</span></div><div class="pmeta">手札${p.handCount} / 札${p.captured} / ${state.players.length===2?extra:`SCOUT${p.scoutPoints} / ${extra}`}</div>`;
   el.appendChild(b);
  });
@@ -330,30 +420,53 @@ function renderActive(){
  const own=state.players.find(p=>p.id===state.activeOwner),info=setInfo(state.active);$("#activeInfo").textContent=`${own?.name||""} / ${info.type==="group"?"同数":info.type==="run"?"連番":"単体"} / ${info.label}`;
  state.active.forEach(c=>$("#activeSet").appendChild(cardEl(c)));
 }
-function fitMobileHand(){
- const el=$("#handWrap"),cards=[...el.querySelectorAll(".card")];
+function fitOverlapCards(container, preferredWidth, preferredHeight){
+ const cards=[...container.querySelectorAll(":scope > .card")];
  if(!cards.length)return;
- const mobile=window.matchMedia("(max-width:700px) and (orientation:portrait)").matches;
- if(!mobile){
-  cards.forEach(c=>{c.style.width="";c.style.height="";c.style.flexBasis="";c.querySelector(".mainnum").style.fontSize="";c.querySelector(".corner").style.fontSize="";c.querySelector(".subnum").style.fontSize=""});
-  return;
- }
- const n=cards.length, gap=1, available=Math.max(120,el.clientWidth-4);
- const w=Math.max(8,Math.min(42,Math.floor((available-gap*(n-1))/n)));
- const h=Math.max(20,Math.round(w*1.52));
- const main=Math.max(10,Math.min(20,Math.round(w*.48)));
- const small=Math.max(6,Math.min(9,Math.round(w*.23)));
- cards.forEach(c=>{
-  c.style.width=`${w}px`;c.style.height=`${h}px`;c.style.flexBasis=`${w}px`;
-  c.querySelector(".mainnum").style.fontSize=`${main}px`;
-  c.querySelector(".corner").style.fontSize=`${small}px`;
-  c.querySelector(".subnum").style.fontSize=`${small}px`;
+
+ const available=Math.max(80,container.clientWidth-6);
+ const n=cards.length;
+ const cardW=Math.min(preferredWidth, Math.max(28, preferredWidth));
+ const cardH=preferredHeight;
+
+ // The cards remain readable. Only the spacing between cards is compressed.
+ // The final card is always fully visible because the step is calculated
+ // from (available - one full card width).
+ const step=n<=1?cardW:Math.min(cardW,Math.max(7,(available-cardW)/(n-1)));
+ const overlap=Math.max(0,cardW-step);
+
+ cards.forEach((c,i)=>{
+  c.style.width=`${cardW}px`;
+  c.style.height=`${cardH}px`;
+  c.style.flexBasis=`${cardW}px`;
+  c.style.marginLeft=i===0?"0":`${-overlap}px`;
+  c.style.zIndex=String(i+1);
+
+  const main=c.querySelector(".mainnum");
+  const corner=c.querySelector(".corner");
+  const sub=c.querySelector(".subnum");
+  if(main)main.style.fontSize=`${Math.max(14,Math.round(cardW*.46))}px`;
+  if(corner)corner.style.fontSize=`${Math.max(8,Math.round(cardW*.20))}px`;
+  if(sub)sub.style.fontSize=`${Math.max(8,Math.round(cardW*.20))}px`;
  });
 }
+
+function fitHandCards(){
+ const el=$("#handWrap");
+ const mobile=window.matchMedia("(max-width:700px) and (orientation:portrait)").matches;
+ fitOverlapCards(el,mobile?46:66,mobile?70:100);
+}
+
+function fitOrientationCards(){
+ const el=$("#orientHand");
+ const mobile=window.matchMedia("(max-width:700px) and (orientation:portrait)").matches;
+ fitOverlapCards(el,mobile?46:66,mobile?70:100);
+}
+
 function renderHand(){
  const el=$("#handWrap");el.innerHTML="";const p=me();if(!p?.hand)return;
  p.hand.forEach((c,i)=>{const d=cardEl(c,true);if(selected.has(i))d.classList.add("selected");d.onclick=()=>{if(!canSelect())return;selected.has(i)?selected.delete(i):selected.add(i);renderHand();renderActions()};el.appendChild(d)});
- requestAnimationFrame(fitMobileHand);
+ requestAnimationFrame(fitHandCards);
 }
 function selectedRange(){
  const p=me();if(!p?.hand||!selected.size)return null;const a=[...selected].sort((x,y)=>x-y);for(let i=1;i<a.length;i++)if(a[i]!==a[i-1]+1)return null;return{i:a[0],j:a.at(-1),cards:p.hand.slice(a[0],a.at(-1)+1)}
@@ -405,7 +518,11 @@ function renderOverlays(){
 }
 $("#addCpu").onclick=()=>send("add_cpu");$("#removeCpu").onclick=()=>send("remove_cpu");$("#startGame").onclick=()=>send("start_game");
 
-function renderOrient(){const e=$("#orientHand");e.innerHTML="";me()?.hand?.forEach(c=>e.appendChild(cardEl(c)))}
+function renderOrient(){
+ const e=$("#orientHand");e.innerHTML="";
+ me()?.hand?.forEach(c=>e.appendChild(cardEl(c)));
+ requestAnimationFrame(fitOrientationCards);
+}
 $("#flipOrient").onclick=()=>send("flip_orientation");$("#confirmOrient").onclick=()=>send("confirm_orientation");
 
 function openScout(isDouble){
@@ -464,8 +581,22 @@ function renderRound(){
 $("#nextRound").onclick=()=>send("next_round");
 
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-window.addEventListener("resize",()=>requestAnimationFrame(fitMobileHand));
-refreshRooms();
+window.addEventListener("resize",()=>requestAnimationFrame(()=>{fitHandCards();fitOrientationCards()}));
+
+async function boot(){
+ await refreshRooms();
+ const lastRoom=localStorage.getItem("scout_last_room");
+ const savedName=localStorage.getItem("scout_name");
+ if(savedName)$("#nameInput").value=savedName;
+ if(lastRoom){
+  // Same clientId is persisted in localStorage, so the server restores
+  // the existing player during an in-progress game instead of creating a new seat.
+  currentRoom=lastRoom;
+  lastEventSeq=null;
+  connectRoom(lastRoom,true);
+ }
+}
+boot();
 </script>
 </body>
 </html>
