@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>SCOUT ONLINE v1.1</title>
+<title>SCOUT ONLINE v1.2</title>
 <style>
 :root{
  --bg:#101319;--panel:#1a1f28;--panel2:#242b36;--line:#3b4655;--text:#f6f3ea;
@@ -36,6 +36,10 @@ button.small{padding:6px 9px;font-size:12px}
 .seat{font-size:10px;color:var(--muted)}
 .pname{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ptotal{font-size:12px;font-weight:1000;color:#ffe36a;white-space:nowrap}
+.scoutUses{display:inline-flex;align-items:center;gap:2px;font-weight:900;color:#f4d35e}
+.scoutDot{font-size:12px;line-height:1}
+.scoutDot.off{color:#555e69}
+.scoutRemain{margin-left:3px;color:#fff}
 .pstatus{margin-left:auto;font-size:11px;color:var(--muted)}
 .pmeta{font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap}
 #center{display:flex;flex-direction:column;gap:8px;min-height:0}
@@ -95,7 +99,7 @@ button.small{padding:6px 9px;font-size:12px}
 
 .centerFlash{position:fixed;left:50%;top:50%;z-index:100;transform:translate(-50%,-50%);font-size:clamp(34px,6vw,72px);font-weight:1000;pointer-events:none;opacity:0;text-shadow:0 4px 10px #000,0 0 20px #000}
 .centerFlash.go{animation:flash 1.1s ease-out forwards}
-.centerFlash.scout{color:#6ae3ff}.centerFlash.double{color:#ffe45d}
+.centerFlash.scout{color:#6ae3ff}.centerFlash.double{color:#ffe45d}.centerFlash.agari{color:#7dff8c}
 @keyframes flash{0%{opacity:0;transform:translate(-50%,-50%) scale(.55)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}68%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(.92)}}
 .scorePop{position:absolute;left:50%;top:3px;z-index:20;transform:translateX(-50%);font-size:21px;font-weight:1000;color:#ffe66a;text-shadow:0 2px 3px #000;pointer-events:none;animation:scorepop 1.05s ease-out forwards}
 @keyframes scorepop{0%{opacity:0;transform:translate(-50%,8px) scale(.8)}20%{opacity:1;transform:translate(-50%,-8px) scale(1.15)}75%{opacity:1;transform:translate(-50%,-28px)}100%{opacity:0;transform:translate(-50%,-42px)}}
@@ -119,9 +123,8 @@ button.small{padding:6px 9px;font-size:12px}
  #actions{padding:4px;gap:4px}#actions button{padding:7px 4px;font-size:12px}
  #fixBar{height:29px}#fixBar button{padding:5px 7px;font-size:10px}
  #handPanel{height:138px;padding:4px}
- #handWrap{gap:0;padding:5px 0 0;overflow:hidden}
- #handWrap .card{width:42px;height:64px;margin-left:-10px}
- #handWrap .card:first-child{margin-left:0}
+ #handWrap{gap:1px;padding:5px 0 0;overflow:hidden;width:100%;justify-content:center}
+ #handWrap .card{margin-left:0;min-width:0;flex:0 0 auto}
  #handWrap .card .mainnum{font-size:20px}
  #handHint{font-size:9px;height:14px}
  #side{grid-row:3;display:grid;grid-template-columns:132px 1fr;gap:4px;min-height:0}
@@ -135,7 +138,7 @@ button.small{padding:6px 9px;font-size:12px}
 <body>
 <div id="app">
  <div class="topbar">
-  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.1</div>
+  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.2</div>
   <div class="spacer"></div><div id="conn">未接続</div>
   <button id="leaveBtn" class="small hidden">タイトルへ</button>
  </div>
@@ -264,7 +267,7 @@ async function refreshRooms(){
   box.querySelector(".reset").onclick=async()=>{if(!confirm(`${room}を初期化しますか？`))return;await fetch(`${WORKER_ORIGIN}/room/${room}/reset`,{method:"POST"});refreshRooms()};
  }
 }
-function phaseText(p){return({lobby:"待機中",orientation:"向き選択",play:"対戦中",doubleShow:"ダブルプレイ",roundEnd:"ラウンド終了",gameOver:"ゲーム終了"})[p]||p}
+function phaseText(p){return({lobby:"待機中",orientation:"向き選択",play:"対戦中",doubleShow:"ダブルプレイ",agari:"あがり",roundEnd:"ラウンド終了",gameOver:"ゲーム終了"})[p]||p}
 
 function joinRoom(room){
  const name=$("#nameInput").value.trim()||"PLAYER";localStorage.setItem("scout_name",name);currentRoom=room;lastEventSeq=null;
@@ -296,6 +299,7 @@ function handleEvents(){
  for(const e of state.events.filter(e=>e.seq>lastEventSeq)){
   if(e.type==="scout")flash("スカウト！","scout");
   if(e.type==="double")flash("ダブルプレイ！！","double");
+  if(e.type==="agari")flash("あがり！","agari");
   if(e.type==="score")scorePop(e.pid,e.amount);
  }
  lastEventSeq=state.eventSeq;
@@ -309,8 +313,15 @@ function renderPlayers(){
  const el=$("#playersPanel");el.innerHTML="";
  const order=state.seatOrder?.length?state.seatOrder:state.players.map(p=>p.id);
  order.forEach((pid,idx)=>{const p=state.players.find(x=>x.id===pid);if(!p)return;const b=document.createElement("div");b.className=`playerBox${state.turn===pid&&(state.phase==="play"||state.phase==="doubleShow")?" turn":""}${pid===state.you?" you":""}`;b.dataset.pid=pid;
-  const extra=state.players.length===2?`SCOUT用 ${p.scoutCurrency}`:`ダブル ${p.scoutAndShow?"○":"済"}`;
-  b.innerHTML=`<div class="playerRow"><span class="seat">${idx+1}席</span><span class="pname">${escapeHtml(p.name)}</span><span class="ptotal">${p.totalScore}点</span><span class="pstatus">${p.cpu?"CPU":p.connected?"●":"○"}</span></div><div class="pmeta">手札${p.handCount} / 札${p.captured} / SCOUT${p.scoutPoints} / ${extra}</div>`;
+  let extra;
+  if(state.players.length===2){
+   const dots=[0,1,2].map(i=>`<span class="scoutDot ${i<p.scoutCurrency?"":"off"}">●</span>`).join("");
+   extra=`<span class="scoutUses">SCOUT ${dots}<span class="scoutRemain">${p.scoutCurrency}/3</span></span>`;
+  }else{
+   extra=`ダブル ${p.scoutAndShow?"○":"済"}`;
+  }
+  const shownScore=p.liveScore ?? p.totalScore;
+  b.innerHTML=`<div class="playerRow"><span class="seat">${idx+1}席</span><span class="pname">${escapeHtml(p.name)}</span><span class="ptotal">${shownScore}点</span><span class="pstatus">${p.cpu?"CPU":p.connected?"●":"○"}</span></div><div class="pmeta">手札${p.handCount} / 札${p.captured} / ${state.players.length===2?extra:`SCOUT${p.scoutPoints} / ${extra}`}</div>`;
   el.appendChild(b);
  });
 }
@@ -319,9 +330,30 @@ function renderActive(){
  const own=state.players.find(p=>p.id===state.activeOwner),info=setInfo(state.active);$("#activeInfo").textContent=`${own?.name||""} / ${info.type==="group"?"同数":info.type==="run"?"連番":"単体"} / ${info.label}`;
  state.active.forEach(c=>$("#activeSet").appendChild(cardEl(c)));
 }
+function fitMobileHand(){
+ const el=$("#handWrap"),cards=[...el.querySelectorAll(".card")];
+ if(!cards.length)return;
+ const mobile=window.matchMedia("(max-width:700px) and (orientation:portrait)").matches;
+ if(!mobile){
+  cards.forEach(c=>{c.style.width="";c.style.height="";c.style.flexBasis="";c.querySelector(".mainnum").style.fontSize="";c.querySelector(".corner").style.fontSize="";c.querySelector(".subnum").style.fontSize=""});
+  return;
+ }
+ const n=cards.length, gap=1, available=Math.max(120,el.clientWidth-4);
+ const w=Math.max(8,Math.min(42,Math.floor((available-gap*(n-1))/n)));
+ const h=Math.max(20,Math.round(w*1.52));
+ const main=Math.max(10,Math.min(20,Math.round(w*.48)));
+ const small=Math.max(6,Math.min(9,Math.round(w*.23)));
+ cards.forEach(c=>{
+  c.style.width=`${w}px`;c.style.height=`${h}px`;c.style.flexBasis=`${w}px`;
+  c.querySelector(".mainnum").style.fontSize=`${main}px`;
+  c.querySelector(".corner").style.fontSize=`${small}px`;
+  c.querySelector(".subnum").style.fontSize=`${small}px`;
+ });
+}
 function renderHand(){
  const el=$("#handWrap");el.innerHTML="";const p=me();if(!p?.hand)return;
  p.hand.forEach((c,i)=>{const d=cardEl(c,true);if(selected.has(i))d.classList.add("selected");d.onclick=()=>{if(!canSelect())return;selected.has(i)?selected.delete(i):selected.add(i);renderHand();renderActions()};el.appendChild(d)});
+ requestAnimationFrame(fitMobileHand);
 }
 function selectedRange(){
  const p=me();if(!p?.hand||!selected.size)return null;const a=[...selected].sort((x,y)=>x-y);for(let i=1;i<a.length;i++)if(a[i]!==a[i-1]+1)return null;return{i:a[0],j:a.at(-1),cards:p.hand.slice(a[0],a.at(-1)+1)}
@@ -353,6 +385,7 @@ function eventText(e,n){
  if(e.type==="scout")return `${n[e.pid]||""}：SCOUT`;
  if(e.type==="double")return `${n[e.pid]||""}：ダブルプレイ`;
  if(e.type==="score")return `${n[e.pid]||""}：${e.kind==="scout"?"SCOUT点":"札点"} +${e.amount}`;
+ if(e.type==="agari")return `${n[e.pid]||""}：あがり！`;
  if(e.type==="round_end")return `ラウンド終了`;
  return e.type;
 }
@@ -431,6 +464,7 @@ function renderRound(){
 $("#nextRound").onclick=()=>send("next_round");
 
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+window.addEventListener("resize",()=>requestAnimationFrame(fitMobileHand));
 refreshRooms();
 </script>
 </body>
