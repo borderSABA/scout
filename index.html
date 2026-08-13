@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>SCOUT ONLINE v1.7</title>
+<title>SCOUT ONLINE v1.8</title>
 <style>
 :root{
  --bg:#101319;--panel:#1a1f28;--panel2:#242b36;--line:#3b4655;--text:#f6f3ea;
@@ -130,7 +130,7 @@ button.small{padding:6px 9px;font-size:12px}
  #actions{padding:4px;gap:4px}#actions button{padding:7px 4px;font-size:12px}
  #fixBar{height:29px}#fixBar button{padding:5px 7px;font-size:10px}
  #handPanel{height:136px;padding:3px}
- #handWrap{gap:0;padding:12px 0 0;overflow:hidden;width:100%;justify-content:center;position:relative}
+ #handWrap{gap:0;padding:12px 2px 0;overflow:hidden;width:100%;justify-content:flex-start;position:relative}
  #handWrap .card{margin-left:0;min-width:0;flex:0 0 auto}
  #handWrap .card .mainnum{font-size:20px}
  #handHint{font-size:9px;height:14px}
@@ -145,7 +145,7 @@ button.small{padding:6px 9px;font-size:12px}
 <body>
 <div id="app">
  <div class="topbar">
-  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.7</div>
+  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.8</div>
   <div class="spacer"></div><div id="conn">未接続</div>
   <button id="leaveBtn" class="small hidden">タイトルへ</button>
  </div>
@@ -469,17 +469,48 @@ function fitOverlapCards(container, preferredWidth, preferredHeight){
 
 function fitHandCards(){
  const el=$("#handWrap");
+ const cards=[...el.querySelectorAll(":scope > .card")];
+ if(!cards.length)return;
  const mobile=window.matchMedia("(max-width:700px) and (orientation:portrait)").matches;
- if(mobile){
-  const n=el.querySelectorAll(":scope > .card").length;
-  // Keep cards readable but smaller than before on phones.
-  // More cards -> slightly smaller base width before overlap is applied.
-  const w=n>=15?34:n>=12?36:n>=10?38:40;
-  const h=Math.round(w*1.52);
-  fitOverlapCards(el,w,h);
- }else{
+
+ if(!mobile){
+  cards.forEach(c=>{
+   c.style.position="";
+   c.style.left="";
+   c.style.bottom="";
+  });
   fitOverlapCards(el,66,100);
+  return;
  }
+
+ const n=cards.length;
+ // A little smaller than before, with a fixed safety inset on both sides.
+ const w=n>=15?32:n>=12?34:n>=10?36:38;
+ const h=Math.round(w*1.52);
+ const safety=10;
+ const available=Math.max(w,el.clientWidth-safety*2);
+ const step=n<=1?0:Math.max(3,(available-w)/(n-1));
+ const actualStep=n<=1?0:Math.min(w,step);
+ const visualWidth=w+actualStep*Math.max(0,n-1);
+ const leftStart=Math.max(safety,(el.clientWidth-visualWidth)/2);
+
+ cards.forEach((c,i)=>{
+  c.style.position="absolute";
+  c.style.left=`${leftStart+actualStep*i}px`;
+  c.style.bottom="0";
+  c.style.width=`${w}px`;
+  c.style.height=`${h}px`;
+  c.style.flexBasis=`${w}px`;
+  c.style.marginLeft="0";
+  c.style.zIndex=String(i+1);
+
+  const main=c.querySelector(".mainnum");
+  const corner=c.querySelector(".corner");
+  const sub=c.querySelector(".subnum");
+  if(main)main.style.fontSize=`${Math.max(12,Math.round(w*.46))}px`;
+  if(corner)corner.style.fontSize=`${Math.max(7,Math.round(w*.20))}px`;
+  if(sub)sub.style.fontSize=`${Math.max(7,Math.round(w*.20))}px`;
+ });
 }
 
 function fitOrientationCards(){
