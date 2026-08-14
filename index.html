@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>SCOUT ONLINE v1.13</title>
+<title>SCOUT ONLINE v1.14</title>
 <style>
 :root{
  --bg:#101319;--panel:#1a1f28;--panel2:#242b36;--line:#3b4655;--text:#f6f3ea;
@@ -79,7 +79,7 @@ button.small{padding:6px 9px;font-size:12px}
 .card .corner{position:absolute;left:6px;top:4px;font-size:13px;font-weight:900}
 .card .subnum{position:absolute;right:6px;bottom:4px;font-size:13px;font-weight:900;opacity:.7}
 .card.clickable{cursor:pointer;transition:.1s transform}
-.card.selected{transform:translateY(-10px);outline:3px solid var(--accent)}
+.card.selected{transform:translate3d(0,-10px,0);outline:3px solid var(--accent)}
 .card.n1{background:#8b5a2b;color:#fff;border-color:#5f3c1c}
 .card.n2{background:#e53935;color:#fff;border-color:#aa1f1c}
 .card.n3{background:#f57c00;color:#fff;border-color:#b85b00}
@@ -147,7 +147,7 @@ button.small{padding:6px 9px;font-size:12px}
  #fixBar{height:29px}#fixBar button{padding:5px 7px;font-size:10px}
  #handPanel{height:136px;padding:3px}
  #handWrap{gap:0;padding:12px 2px 0;overflow:hidden;width:100%;justify-content:flex-start;position:relative}
- #handWrap .card{margin-left:0;min-width:0;flex:0 0 auto}
+ #handWrap .card{margin-left:0;min-width:0;flex:0 0 auto;transition:none}
  #handWrap .card .mainnum{font-size:20px}
  #handHint{font-size:9px;height:14px}
  #side{grid-row:3;display:grid;grid-template-columns:132px 1fr;gap:4px;min-height:0}
@@ -161,7 +161,7 @@ button.small{padding:6px 9px;font-size:12px}
 <body>
 <div id="app">
  <div class="topbar">
-  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.13</div>
+  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.14</div>
   <div class="spacer"></div><div id="conn">未接続</div>
   <button id="leaveBtn" class="small hidden">タイトルへ</button>
  </div>
@@ -187,7 +187,7 @@ button.small{padding:6px 9px;font-size:12px}
  <div class="modal">
   <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
    <h1 style="margin:0">SCOUT ONLINE</h1>
-   <span class="ver">v1.3</span>
+   <span class="ver">v1.14</span>
   </div>
   <p>固定4部屋。2～5人で対戦できます。足りない人数はCPUを追加できます。</p>
   <div class="nameRow"><input id="nameInput" maxlength="20" placeholder="名前"><button id="refreshRooms">更新</button></div>
@@ -576,7 +576,9 @@ function fitHandCards(){
  cards.forEach((c,i)=>{
   c.style.position="absolute";
   c.style.left=`${leftStart + step*i}px`;
+  c.style.right="auto";
   c.style.bottom="0";
+  c.style.transformOrigin="center bottom";
   c.style.width=`${w}px`;
   c.style.height=`${h}px`;
   c.style.flexBasis=`${w}px`;
@@ -599,8 +601,36 @@ function fitOrientationCards(){
 }
 
 function renderHand(){
- const el=$("#handWrap");el.innerHTML="";const p=me();if(!p?.hand)return;
- p.hand.forEach((c,i)=>{const d=cardEl(c,true);if(selected.has(i))d.classList.add("selected");d.onclick=()=>{if(!canSelect())return;selected.has(i)?selected.delete(i):selected.add(i);renderHand();renderActions()};el.appendChild(d)});
+ const el=$("#handWrap");
+ el.innerHTML="";
+ const p=me();
+ if(!p?.hand)return;
+
+ p.hand.forEach((c,i)=>{
+  const d=cardEl(c,true);
+  d.dataset.handIndex=String(i);
+  if(selected.has(i)) d.classList.add("selected");
+
+  d.onclick=()=>{
+   if(!canSelect())return;
+
+   if(selected.has(i)){
+    selected.delete(i);
+    d.classList.remove("selected");
+   }else{
+    selected.add(i);
+    d.classList.add("selected");
+   }
+
+   // Important on mobile Safari:
+   // do not rebuild/reposition the whole hand just because one card was selected.
+   // Keeping the same DOM nodes preserves the exact left positions.
+   renderActions();
+  };
+
+  el.appendChild(d);
+ });
+
  requestAnimationFrame(fitHandCards);
 }
 function selectedRange(){
