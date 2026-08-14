@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>SCOUT ONLINE v1.14</title>
+<title>SCOUT ONLINE v1.15</title>
 <style>
 :root{
  --bg:#101319;--panel:#1a1f28;--panel2:#242b36;--line:#3b4655;--text:#f6f3ea;
@@ -161,7 +161,7 @@ button.small{padding:6px 9px;font-size:12px}
 <body>
 <div id="app">
  <div class="topbar">
-  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.14</div>
+  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.15</div>
   <div class="spacer"></div><div id="conn">未接続</div>
   <button id="leaveBtn" class="small hidden">タイトルへ</button>
  </div>
@@ -187,7 +187,7 @@ button.small{padding:6px 9px;font-size:12px}
  <div class="modal">
   <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
    <h1 style="margin:0">SCOUT ONLINE</h1>
-   <span class="ver">v1.14</span>
+   <span class="ver">v1.15</span>
   </div>
   <p>固定4部屋。2～5人で対戦できます。足りない人数はCPUを追加できます。</p>
   <div class="nameRow"><input id="nameInput" maxlength="20" placeholder="名前"><button id="refreshRooms">更新</button></div>
@@ -532,65 +532,79 @@ function fitHandCards(){
  const el=$("#handWrap");
  const cards=[...el.querySelectorAll(":scope > .card")];
  if(!cards.length)return;
+
  const mobile=window.matchMedia("(max-width:700px) and (orientation:portrait)").matches;
 
  if(!mobile){
   cards.forEach(c=>{
    c.style.position="";
    c.style.left="";
+   c.style.right="";
    c.style.bottom="";
+   c.style.transformOrigin="";
   });
   fitOverlapCards(el,66,100);
   return;
  }
 
  const n=cards.length;
+ const fullWidth=Math.max(100,el.clientWidth);
 
- // Phone layout:
- // - always start near the left edge
- // - always allow overlap
- // - if the hand would overflow, shrink cards first and then overlap more
- const targetW=n>=15?26:n>=12?28:n>=10?30:32;
- const minW=14;
- const safety=4;
- const fullWidth=Math.max(80, el.clientWidth);
- const available=Math.max(20, fullWidth - safety*2);
+ // Use almost the full width of the hand area.
+ const sidePadding=6;
+ const available=Math.max(60,fullWidth-sidePadding*2);
 
- let w=Math.min(targetW, available);
+ // Keep cards reasonably large first.
+ // Only very large hands reduce the base width.
+ let w;
+ if(n<=8) w=48;
+ else if(n<=11) w=46;
+ else if(n<=14) w=43;
+ else w=40;
 
+ w=Math.min(w,available);
+
+ // Calculate the exact horizontal step required to fit the complete hand.
+ // This makes cards overlap only as much as necessary.
+ let step=n<=1?0:(available-w)/(n-1);
+ step=Math.max(1,Math.min(w,step));
+
+ // If there is enough room, still keep a small visible overlap so the hand
+ // reads as one row rather than separated cards.
  if(n>1){
-  // Keep at least 1px of each next card visible.
-  const maxWidthToFit = available - (n-1)*1;
-  if(maxWidthToFit < w) w = maxWidthToFit;
+  const minimumOverlap=5;
+  step=Math.min(step,w-minimumOverlap);
  }
- w=Math.max(minW, Math.min(w, available));
 
- // Limit step so there is always visible overlap on phones.
- const fitStep=n<=1?0:(available - w)/(n-1);
- const maxStep=n<=1?0:Math.floor(w*0.62);
- const step=n<=1?0:Math.max(1, Math.min(maxStep, fitStep));
+ const visualWidth=n<=1?w:w+step*(n-1);
+
+ // Center the complete row inside the hand panel.
+ const leftStart=Math.max(
+  sidePadding,
+  Math.floor((fullWidth-visualWidth)/2)
+ );
 
  const h=Math.round(w*1.52);
- const leftStart=safety;
 
  cards.forEach((c,i)=>{
   c.style.position="absolute";
-  c.style.left=`${leftStart + step*i}px`;
+  c.style.left=`${leftStart+step*i}px`;
   c.style.right="auto";
   c.style.bottom="0";
-  c.style.transformOrigin="center bottom";
   c.style.width=`${w}px`;
   c.style.height=`${h}px`;
   c.style.flexBasis=`${w}px`;
   c.style.marginLeft="0";
   c.style.zIndex=String(i+1);
+  c.style.transformOrigin="center bottom";
 
   const main=c.querySelector(".mainnum");
   const corner=c.querySelector(".corner");
   const sub=c.querySelector(".subnum");
-  if(main)main.style.fontSize=`${Math.max(9,Math.round(w*.46))}px`;
-  if(corner)corner.style.fontSize=`${Math.max(6,Math.round(w*.20))}px`;
-  if(sub)sub.style.fontSize=`${Math.max(6,Math.round(w*.20))}px`;
+
+  if(main)main.style.fontSize=`${Math.max(16,Math.round(w*.46))}px`;
+  if(corner)corner.style.fontSize=`${Math.max(8,Math.round(w*.20))}px`;
+  if(sub)sub.style.fontSize=`${Math.max(8,Math.round(w*.20))}px`;
  });
 }
 
