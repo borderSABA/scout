@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>SCOUT ONLINE v1.15</title>
+<title>SCOUT ONLINE v1.16</title>
 <style>
 :root{
  --bg:#101319;--panel:#1a1f28;--panel2:#242b36;--line:#3b4655;--text:#f6f3ea;
@@ -145,8 +145,8 @@ button.small{padding:6px 9px;font-size:12px}
  #activeSet .card{width:43px;height:65px}.card .mainnum{font-size:22px}.card .corner,.card .subnum{font-size:9px}
  #actions{padding:4px;gap:4px}#actions button{padding:7px 4px;font-size:12px}
  #fixBar{height:29px}#fixBar button{padding:5px 7px;font-size:10px}
- #handPanel{height:136px;padding:3px}
- #handWrap{gap:0;padding:12px 2px 0;overflow:hidden;width:100%;justify-content:flex-start;position:relative}
+ #handPanel{height:136px;padding:3px;overflow:hidden}
+ #handWrap{gap:0;padding:12px 0 0;overflow:hidden;width:100%;justify-content:flex-start;position:relative;min-width:0}
  #handWrap .card{margin-left:0;min-width:0;flex:0 0 auto;transition:none}
  #handWrap .card .mainnum{font-size:20px}
  #handHint{font-size:9px;height:14px}
@@ -161,7 +161,7 @@ button.small{padding:6px 9px;font-size:12px}
 <body>
 <div id="app">
  <div class="topbar">
-  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.15</div>
+  <div class="brand">SCOUT ONLINE</div><div class="ver">v1.16</div>
   <div class="spacer"></div><div id="conn">未接続</div>
   <button id="leaveBtn" class="small hidden">タイトルへ</button>
  </div>
@@ -187,7 +187,7 @@ button.small{padding:6px 9px;font-size:12px}
  <div class="modal">
   <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
    <h1 style="margin:0">SCOUT ONLINE</h1>
-   <span class="ver">v1.15</span>
+   <span class="ver">v1.16</span>
   </div>
   <p>固定4部屋。2～5人で対戦できます。足りない人数はCPUを追加できます。</p>
   <div class="nameRow"><input id="nameInput" maxlength="20" placeholder="名前"><button id="refreshRooms">更新</button></div>
@@ -530,6 +530,7 @@ function fitOverlapCards(container, preferredWidth, preferredHeight){
 
 function fitHandCards(){
  const el=$("#handWrap");
+ const panel=$("#handPanel");
  const cards=[...el.querySelectorAll(":scope > .card")];
  if(!cards.length)return;
 
@@ -548,47 +549,39 @@ function fitHandCards(){
  }
 
  const n=cards.length;
- const fullWidth=Math.max(100,el.clientWidth);
+ const panelRect=panel?.getBoundingClientRect();
+ const fullWidth=Math.max(120, Math.floor((panelRect?.width || el.clientWidth || 0) - 14));
+ const sidePadding=2;
+ const available=Math.max(40, fullWidth - sidePadding*2);
 
- // Use almost the full width of the hand area.
- const sidePadding=6;
- const available=Math.max(60,fullWidth-sidePadding*2);
-
- // Keep cards reasonably large first.
- // Only very large hands reduce the base width.
+ // Keep the cards readable, but the hard requirement is: fit inside the tab.
  let w;
- if(n<=8) w=48;
- else if(n<=11) w=46;
- else if(n<=14) w=43;
- else w=40;
+ if(n<=8) w=42;
+ else if(n<=11) w=38;
+ else if(n<=14) w=34;
+ else w=30;
 
- w=Math.min(w,available);
-
- // Calculate the exact horizontal step required to fit the complete hand.
- // This makes cards overlap only as much as necessary.
- let step=n<=1?0:(available-w)/(n-1);
- step=Math.max(1,Math.min(w,step));
-
- // If there is enough room, still keep a small visible overlap so the hand
- // reads as one row rather than separated cards.
+ // If needed, shrink further so that at least 1px of each next card remains visible.
  if(n>1){
-  const minimumOverlap=5;
-  step=Math.min(step,w-minimumOverlap);
+  w=Math.min(w, available - (n-1));
  }
+ w=Math.max(14, Math.min(w, available));
 
- const visualWidth=n<=1?w:w+step*(n-1);
+ // Exact step needed to keep the whole hand inside the tab.
+ let step=n<=1 ? 0 : (available - w) / (n-1);
+ step=Math.max(1, Math.min(w, step));
 
- // Center the complete row inside the hand panel.
- const leftStart=Math.max(
-  sidePadding,
-  Math.floor((fullWidth-visualWidth)/2)
- );
+ // Prefer a little overlap even when there is room.
+ const preferredStep=Math.max(1, Math.min(w-4, Math.round(w*0.72)));
+ step=Math.min(step, preferredStep);
 
+ const visualWidth=n<=1 ? w : (w + step*(n-1));
+ const leftStart=Math.max(sidePadding, Math.floor((available - visualWidth)/2) + sidePadding);
  const h=Math.round(w*1.52);
 
  cards.forEach((c,i)=>{
   c.style.position="absolute";
-  c.style.left=`${leftStart+step*i}px`;
+  c.style.left=`${leftStart + step*i}px`;
   c.style.right="auto";
   c.style.bottom="0";
   c.style.width=`${w}px`;
@@ -602,9 +595,9 @@ function fitHandCards(){
   const corner=c.querySelector(".corner");
   const sub=c.querySelector(".subnum");
 
-  if(main)main.style.fontSize=`${Math.max(16,Math.round(w*.46))}px`;
-  if(corner)corner.style.fontSize=`${Math.max(8,Math.round(w*.20))}px`;
-  if(sub)sub.style.fontSize=`${Math.max(8,Math.round(w*.20))}px`;
+  if(main)main.style.fontSize=`${Math.max(13,Math.round(w*.46))}px`;
+  if(corner)corner.style.fontSize=`${Math.max(7,Math.round(w*.20))}px`;
+  if(sub)sub.style.fontSize=`${Math.max(7,Math.round(w*.20))}px`;
  });
 }
 
